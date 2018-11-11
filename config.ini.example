@@ -1,2 +1,3 @@
 [DEFAULT]
 TWITCH_OAUTH_TOKEN = oauthtokenhere
+WHITELIST = comma,separated,list,here
