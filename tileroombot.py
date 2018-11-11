@@ -67,7 +67,7 @@ class TileRoomBot(TwitchIrc):
                 elif cmd[0] == '!forcestop':
                     self.message(channel,'Setting GTBK game to finished.')
                     gtbk_game_status[channel] = "finished"
-                elif cmd[0] == '!bigkey':
+                elif cmd[0] == '!bigkey' or cmd[0] == '!key':
                     winner = findwinner(cmd[1],channel)
                     if winner:
                         self.message(channel,winner[0] + ' was the winner of the Ganon\'s Tower Big Key guessing game. ' + winner[0] + ' guessed ' + str(winner[1]) + ' and the big key was ' + cmd[1] + '. Congratulations!')
@@ -101,8 +101,12 @@ class TileRoomBot(TwitchIrc):
 def recordguess(channel, user, message):
     if gtbk_game_status[channel] == 'started' and message.isdigit():
         gtbk_game_guesses[channel].pop(user, None)
-        gtbk_game_guesses[channel][user] = int(message)
-        print('recording guess on channel ' + channel + ' by ' + user + ' as ' + message)
+        # in case the user tries to send something strange
+        try:
+            gtbk_game_guesses[channel][user] = int(message)
+            print('recording guess on channel ' + channel + ' by ' + user + ' as ' + message)
+        except ValueError:
+            pass
 
 def findwinner(keyloc, channel):
     if keyloc.isdigit():

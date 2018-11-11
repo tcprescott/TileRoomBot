@@ -14,4 +14,10 @@ Have fun!
 
 ## To do
 
-Add actual permissions scheme (keep a database of authorized users or something)
+Pull whitelisted users from SpeedGaming schedule, instead of putting them in the configuration
+
+Clean code up so it actually meets pep8 coding style
+
+## Not to do
+
+Leaderboards
