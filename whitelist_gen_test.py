@@ -1,13 +1,18 @@
 import requests
 import configparser
+import datetime
+from datetime import timedelta
 
 config = configparser.ConfigParser()
 config.read('config.ini')
 
 def get_sg_schedule_today(slug):
-    sched_resp = requests.get(
-        url=config['DEFAULT']['SPEEDGAMING_API_PATH'] + '/schedule?event=' + slug,
-    )
+    now = datetime.datetime.now()
+    sched_from = now - timedelta(hours=6)
+    sched_to = now + timedelta(hours=6)
+    url=config['DEFAULT']['SPEEDGAMING_API_PATH'] + '/schedule?event=' + slug + '&from=' + sched_from.isoformat() + '&to=' + sched_to.isoformat()
+    print(url)
+    sched_resp = requests.get(url)
     return(sched_resp.json())
 
 def get_whitelist_users(slug):
