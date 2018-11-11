@@ -102,7 +102,7 @@ def recordguess(channel, user, message):
     if gtbk_game_status[channel] == 'started' and message.isdigit():
         gtbk_game_guesses[channel].pop(user, None)
         gtbk_game_guesses[channel][user] = int(message)
-        print('recording guess by ' + user + ' as ' + message)
+        print('recording guess on channel ' + channel + ' by ' + user + ' as ' + message)
 
 def findwinner(keyloc, channel):
     if keyloc.isdigit():
