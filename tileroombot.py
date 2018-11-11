@@ -37,8 +37,8 @@ class TileRoomBot(TwitchIrc):
 
     # Override from base class
     def on_message(self, timestamp, tags, channel, user, message):
-        #check if its a command, and it is an authorized user (hard coded to me atm)
-        if message.startswith('!') and user == 'the_synack':
+        #check if its a command, and it is an channel moderator or owner
+        if message.startswith('!') and (tags['mod'] == '1' or channel == ('#' + user)):
             cmd = message.split()
             if cmd[0] == '!start':
                 if gtbk_game_status[channel] == 'started':
@@ -67,6 +67,8 @@ class TileRoomBot(TwitchIrc):
                 print(gtbk_game_status[channel])
             elif cmd[0] == '!gtbkguesses':
                 print(gtbk_game_guesses[channel])
+            elif cmd[0] == '!gtbktags':
+                print(tags)
             # elif cmd[0] == '!gtbkpopulate':
             #     recordguess(channel, 'testuser1', '8')
             #     recordguess(channel, 'testuser2', '18')
