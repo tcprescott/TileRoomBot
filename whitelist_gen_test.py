@@ -28,9 +28,9 @@ def get_approved_crew(d):
     for crew in d:
         if crew['approved'] == True:
             if crew['publicStream'] == "" or crew['publicStream'] == None:
-                approved_crew.append(crew['displayName'])
+                approved_crew.append(crew['displayName'].lower())
             else:
-                approved_crew.append(crew['publicStream'])
+                approved_crew.append(crew['publicStream'].lower())
     return(approved_crew)
 
 print(get_whitelist_users('alttpr'))
