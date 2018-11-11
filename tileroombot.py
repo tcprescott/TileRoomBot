@@ -98,5 +98,5 @@ def findwinner(keyloc, channel):
     else:
         return False
 
-client = TileRoomBot('TileRoomBot', 'xkcr196yzja4z41tcbxfz6r0xbrb8v').start()
+client = TileRoomBot('TileRoomBot', config['DEFAULT']['TWITCH_OAUTH_TOKEN']).start()
 client.handle_forever()
