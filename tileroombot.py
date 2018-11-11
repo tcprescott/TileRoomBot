@@ -1,12 +1,14 @@
 from python_twitch_irc import TwitchIrc
+import requests
 import configparser
-import time
+import datetime
+import schedule
+from datetime import timedelta
 
 config = configparser.ConfigParser()
 config.read('config.ini')
 
-#a temporary whitelist of users, this is temporary until I implement checking of SG schedule
-#!gtbkwhitelist can be used by an authorized user to update the list without restarting
+whitelist = []
 
 
 channels = [
@@ -41,11 +43,12 @@ class TileRoomBot(TwitchIrc):
 
     # Override from base class
     def on_message(self, timestamp, tags, channel, user, message):
-        #check if its a command, and it is an channel moderator or owner
-        # if message.startswith('!') and (tags['mod'] == '1' or channel == ('#' + user) or user.lower() in (for name.lower() in whitelist):
+
+        #run any pending scheduled jobs (currently just the whitelist)
+        schedule.run_pending()
+
         if message.startswith('!'):
-            whitelist = config['DEFAULT']['WHITELIST'].split(',')
-            if user.lower() in (name.lower() for name in whitelist) or tags['mod'] == '1' or channel.lower() == ('#' + user.lower()):
+            if user.lower() in whitelist or tags['mod'] == '1' or channel.lower() == ('#' + user.lower()):
                 cmd = message.split()
                 if cmd[0] == '!start':
                     if gtbk_game_status[channel] == 'started':
@@ -79,8 +82,6 @@ class TileRoomBot(TwitchIrc):
                 elif cmd[0] == '!gtbkguesses':
                     print(gtbk_game_guesses[channel])
                 elif cmd[0] == '!gtbkwhitelist':
-                    config.read('config.ini')
-                    whitelist = config['DEFAULT']['WHITELIST'].split(',')
                     print(whitelist)
                 elif cmd[0] == '!gtbktags':
                     print(tags)
@@ -116,6 +117,43 @@ def findwinner(keyloc, channel):
         return [key, value]
     else:
         return False
+def get_sg_schedule_today(slug):
+    now = datetime.datetime.now()
+    sched_from = now - timedelta(hours=6)
+    sched_to = now + timedelta(hours=6)
+    url=config['DEFAULT']['SPEEDGAMING_API_PATH'] + '/schedule?event=' + slug + '&from=' + sched_from.isoformat() + '&to=' + sched_to.isoformat()
+    sched_resp = requests.get(url)
+    return(sched_resp.json())
+
+def get_whitelist_users(slug):
+    schedule = get_sg_schedule_today(slug)
+    list = []
+    for e in schedule:
+        if e['event']['slug'] == slug:
+            if any(channel.get('slug', None) in ['alttpr','alttpr2','alttpr3','alttpr4','alttpr5','alttpr6'] for channel in e['channels']):
+                list.extend(get_approved_crew(e['broadcasters']))
+                list.extend(get_approved_crew(e['commentators']))
+                list.extend(get_approved_crew(e['trackers']))
+
+    return(list)
+
+def get_approved_crew(d):
+    approved_crew = []
+    for crew in d:
+        if crew['approved'] == True:
+            if crew['publicStream'] == "" or crew['publicStream'] == None:
+                approved_crew.append(crew['displayName'].lower())
+            else:
+                approved_crew.append(crew['publicStream'].lower())
+    return(approved_crew)
+
+def update_whitelist():
+    global whitelist
+    whitelist = get_whitelist_users('alttpr')
+    print('ran whitelist update')
+
+update_whitelist()
+schedule.every(20).minutes.do(update_whitelist)
 
 client = TileRoomBot('TileRoomBot', config['DEFAULT']['TWITCH_OAUTH_TOKEN']).start()
 client.handle_forever()
