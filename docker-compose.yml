@@ -1,0 +1,12 @@
+version: '3.1'
+
+services:
+  tileroombot:
+    container_name: 'tileroombot'
+    image: tcprescott/tileroombot:latest
+    volumes:
+     - ./cfg/config.ini:/usr/src/app/cfg/config.ini
+    restart: always
+networks:
+  docker-network:
+    driver: bridge

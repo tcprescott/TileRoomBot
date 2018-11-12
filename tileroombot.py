@@ -6,20 +6,10 @@ import schedule
 from datetime import timedelta
 
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read('cfg/config.ini')
 
 whitelist = []
-
-
-channels = [
-    '#the_synack',
-    '#alttprandomizer',
-    '#alttprandomizer2',
-    '#alttprandomizer3',
-    '#alttprandomizer4',
-    '#alttprandomizer5',
-    '#alttprandomizer6',
-]
+channels = config['DEFAULT']['CHANNELS'].split(',')
 
 # initialize the dictionaries used to keep game start
 # this is all in memory, so if the bot crashes ¯\_(ツ)_/¯
