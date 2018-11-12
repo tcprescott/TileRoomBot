@@ -111,8 +111,19 @@ def get_sg_schedule_today(slug):
     now = datetime.datetime.now()
     sched_from = now - timedelta(hours=6)
     sched_to = now + timedelta(hours=6)
-    url=config['DEFAULT']['SPEEDGAMING_API_PATH'] + '/schedule?event=' + slug + '&from=' + sched_from.isoformat() + '&to=' + sched_to.isoformat()
-    sched_resp = requests.get(url)
+
+    url=config['DEFAULT']['SPEEDGAMING_API_PATH'] + '/schedule'
+
+    params = {
+        'event': slug,
+        'from': sched_from.isoformat(),
+        'to': sched_to.isoformat()
+    }
+    sched_resp = requests.get(
+        url=url,
+        params=params
+    )
+    print(sched_resp.url)
     return(sched_resp.json())
 
 def get_whitelist_users(slug):
