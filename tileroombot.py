@@ -4,32 +4,56 @@ import configparser
 import datetime
 import schedule
 from datetime import timedelta
+import logging
+import logging.handlers as handlers
 
-config = configparser.ConfigParser()
-config.read('cfg/config.ini')
+def main():
+    global config
+    config = configparser.ConfigParser()
+    config.read('cfg/config.ini')
 
-whitelist = []
-channels = config['DEFAULT']['CHANNELS'].split(',')
+    global logger
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger('tileroombot')
+    logger.setLevel(logging.INFO)
+    logHandler = handlers.TimedRotatingFileHandler('logs/tileroombot.log', when='D', interval=1, backupCount=7)
+    logHandler.setLevel(logging.INFO)
+    logHandler.setFormatter(formatter)
+    logger.addHandler(logHandler)
 
-# initialize the dictionaries used to keep game start
-# this is all in memory, so if the bot crashes ¯\_(ツ)_/¯
-gtbk_game_status = {}
-gtbk_game_guesses = {}
 
-for channel in channels:
-    #game's default state is finished
-    gtbk_game_status[channel] = {'finished'}
-    #no guesses
-    gtbk_game_guesses[channel] = {}
+    global channels
+    channels = config['DEFAULT']['CHANNELS'].split(',')
+
+    # initialize the dictionaries used to keep game start
+    # this is all in memory, so if the bot crashes ¯\_(ツ)_/¯
+
+    global gtbk_game_status
+    global gtbk_game_guesses
+
+    gtbk_game_status = {}
+    gtbk_game_guesses = {}
+
+    for channel in channels:
+        #game's default state is finished
+        gtbk_game_status[channel] = {'finished'}
+        #no guesses
+        gtbk_game_guesses[channel] = {}
+
+    update_whitelist()
+    schedule.every(20).minutes.do(update_whitelist)
+
+    client = TileRoomBot('TileRoomBot', config['DEFAULT']['TWITCH_OAUTH_TOKEN']).start()
+    client.handle_forever()
 
 
 # initialize
 class TileRoomBot(TwitchIrc):
     def on_connect(self):
         for channel in channels:
-            print('Joining channel ' + channel)
+            logger.info('Joining channel ' + channel)
             self.join(channel)
-        print('Finished joining channels.')
+        logger.info('Finished joining channels.')
 
     # Override from base class
     def on_message(self, timestamp, tags, channel, user, message):
@@ -47,6 +71,7 @@ class TileRoomBot(TwitchIrc):
                         gtbk_game_guesses[channel].clear()
                         self.message(channel,'Get your GTBK guesses in!  The first viewer who guesses closest to the actual key location gets praise by this bot and potentially the commentators!  Only your last guess counts.')
                         gtbk_game_status[channel] = "started"
+                        logger.info(user + ' started GTBK game on ' + channel)
                 elif cmd[0] == '!stop':
                     if gtbk_game_status[channel] != 'started':
                         self.message(channel,'Game already stopped or finished!')
@@ -54,27 +79,32 @@ class TileRoomBot(TwitchIrc):
                         if len(gtbk_game_guesses[channel]) == 0:
                             self.message(channel,'No guesses were entered prior to !stop being issued.  Finishing the GTBK game.')
                             gtbk_game_status[channel] = "finished"
+                            logger.info(user + ' finished GTBK game on ' + channel)
+                            logger.info(gtbk_game_guesses[channel])
                         else:
                             self.message(channel,'Guesses have now closed.  Good luck!')
                             gtbk_game_status[channel] = "stopped"
+                            logger.info(user + ' stopped GTBK game on ' + channel)
                 elif cmd[0] == '!forcestop':
                     self.message(channel,'Setting GTBK game to finished.')
                     gtbk_game_status[channel] = "finished"
+                    logger.info(user + ' forced finish GTBK game on ' + channel)
+                    logger.info(gtbk_game_guesses[channel])
                 elif cmd[0] == '!bigkey' or cmd[0] == '!key':
                     winner = findwinner(cmd[1],channel)
                     if winner:
                         self.message(channel,winner[0] + ' was the winner of the Ganon\'s Tower Big Key guessing game. ' + winner[0] + ' guessed ' + str(winner[1]) + ' and the big key was ' + cmd[1] + '. Congratulations!')
                         gtbk_game_status[channel] = "finished"
+                        logger.info('GTBK winner found. ' + winner[0] + ' ' + str(winner[1]) + ' ' + cmd[1])
+                        logger.info(gtbk_game_guesses[channel])
                     else:
                         self.message(channel,'There was an issue while finding the winner.  Please make sure you entered a postiive number.')
                 elif cmd[0] == '!gtbkstatus':
-                    print(gtbk_game_status[channel])
+                    logger.info(gtbk_game_status[channel])
                 elif cmd[0] == '!gtbkguesses':
-                    print(gtbk_game_guesses[channel])
-                elif cmd[0] == '!gtbkwhitelist':
-                    print(whitelist)
+                    logger.info(gtbk_game_guesses[channel])
                 elif cmd[0] == '!gtbktags':
-                    print(tags)
+                    logger.info(tags)
                 # elif cmd[0] == '!gtbkpopulate':
                 #     recordguess(channel, 'testuser1', '8')
                 #     recordguess(channel, 'testuser2', '18')
@@ -83,7 +113,7 @@ class TileRoomBot(TwitchIrc):
                 #     recordguess(channel, 'testuser5', '-1')
                 #     recordguess(channel, 'testuser6', '2000')
                 #     recordguess(channel, 'testuser7', '23')
-                #     print(gtbk_game_guesses[channel])
+                #     logger.info(gtbk_game_guesses[channel])
                 # elif cmd[0] == '!addguess':
                 #     recordguess(channel, cmd[1], cmd[2])
         else:
@@ -95,7 +125,7 @@ def recordguess(channel, user, message):
         # in case the user tries to send something strange
         try:
             gtbk_game_guesses[channel][user] = int(message)
-            print('recording guess on channel ' + channel + ' by ' + user + ' as ' + message)
+            logger.info('recording guess on channel ' + channel + ' by ' + user + ' as ' + message)
         except ValueError:
             pass
 
@@ -111,8 +141,19 @@ def get_sg_schedule_today(slug):
     now = datetime.datetime.now()
     sched_from = now - timedelta(hours=6)
     sched_to = now + timedelta(hours=6)
-    url=config['DEFAULT']['SPEEDGAMING_API_PATH'] + '/schedule?event=' + slug + '&from=' + sched_from.isoformat() + '&to=' + sched_to.isoformat()
-    sched_resp = requests.get(url)
+
+    url=config['DEFAULT']['SPEEDGAMING_API_PATH'] + '/schedule'
+
+    params = {
+        'event': slug,
+        'from': sched_from.isoformat(),
+        'to': sched_to.isoformat()
+    }
+    sched_resp = requests.get(
+        url=url,
+        params=params
+    )
+    logger.info(sched_resp.url)
     return(sched_resp.json())
 
 def get_whitelist_users(slug):
@@ -140,10 +181,7 @@ def get_approved_crew(d):
 def update_whitelist():
     global whitelist
     whitelist = get_whitelist_users('alttpr')
-    print('ran whitelist update')
+    logger.info('ran whitelist update')
+    logger.info('new whitelist is ' + ','.join(whitelist))
 
-update_whitelist()
-schedule.every(20).minutes.do(update_whitelist)
-
-client = TileRoomBot('TileRoomBot', config['DEFAULT']['TWITCH_OAUTH_TOKEN']).start()
-client.handle_forever()
+main()
