@@ -6,6 +6,7 @@ services:
 
 before_install:
   - docker build -t tcprescott/tileroombot .
+  - docker tag tileroombot tcprescott/tileroombot:${TRAVIS_BRANCH}
 
 deploy:
   provider: script
