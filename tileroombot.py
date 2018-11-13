@@ -80,6 +80,7 @@ class TileRoomBot(TwitchIrc):
                             self.message(channel,'No guesses were entered prior to !stop being issued.  Finishing the GTBK game.')
                             gtbk_game_status[channel] = "finished"
                             logger.info(user + ' finished GTBK game on ' + channel)
+                            logger.info(gtbk_game_guesses[channel])
                         else:
                             self.message(channel,'Guesses have now closed.  Good luck!')
                             gtbk_game_status[channel] = "stopped"
@@ -88,12 +89,14 @@ class TileRoomBot(TwitchIrc):
                     self.message(channel,'Setting GTBK game to finished.')
                     gtbk_game_status[channel] = "finished"
                     logger.info(user + ' forced finish GTBK game on ' + channel)
+                    logger.info(gtbk_game_guesses[channel])
                 elif cmd[0] == '!bigkey' or cmd[0] == '!key':
                     winner = findwinner(cmd[1],channel)
                     if winner:
                         self.message(channel,winner[0] + ' was the winner of the Ganon\'s Tower Big Key guessing game. ' + winner[0] + ' guessed ' + str(winner[1]) + ' and the big key was ' + cmd[1] + '. Congratulations!')
                         gtbk_game_status[channel] = "finished"
                         logger.info('GTBK winner found. ' + winner[0] + ' ' + str(winner[1]) + ' ' + cmd[1])
+                        logger.info(gtbk_game_guesses[channel])
                     else:
                         self.message(channel,'There was an issue while finding the winner.  Please make sure you entered a postiive number.')
                 elif cmd[0] == '!gtbkstatus':
