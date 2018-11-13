@@ -14,10 +14,8 @@ Have fun!
 
 ## To do
 
-Pull whitelisted users from SpeedGaming schedule, instead of putting them in the configuration
-
 Clean code up so it actually meets pep8 coding style
 
-## Not to do
+## Maybe to do
 
-Leaderboards
+Leaderboards (if this happens, I want to be more than person x guessed most times correctly)
