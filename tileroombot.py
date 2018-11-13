@@ -139,7 +139,7 @@ def findwinner(keyloc, channel):
         return False
 def get_sg_schedule_today(slug):
     now = datetime.datetime.now()
-    sched_from = now - timedelta(hours=6)
+    sched_from = now - timedelta(hours=12)
     sched_to = now + timedelta(hours=6)
 
     url=config['DEFAULT']['SPEEDGAMING_API_PATH'] + '/schedule'
