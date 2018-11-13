@@ -6,6 +6,7 @@ services:
     image: tcprescott/tileroombot:latest
     volumes:
      - ./cfg/config.ini:/usr/src/app/cfg/config.ini
+     - ./logs/:/usr/src/app/logs/
     restart: always
 networks:
   docker-network:
