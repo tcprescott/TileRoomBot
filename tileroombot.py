@@ -105,6 +105,9 @@ class TileRoomBot(TwitchIrc):
                     logger.info(gtbk_game_guesses[channel])
                 elif cmd[0] == '!gtbktags':
                     logger.info(tags)
+                elif cmd[0] == '!whitelist':
+                    self.whisper(user,'Here is a comma-separated list of currently whitelisted users for TileRoomBot: ' + ','.join(whitelist))
+                    logger.info('whispered ' + user + ' with the channel whitelist')
                 # elif cmd[0] == '!gtbkpopulate':
                 #     recordguess(channel, 'testuser1', '8')
                 #     recordguess(channel, 'testuser2', '18')
