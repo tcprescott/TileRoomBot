@@ -130,24 +130,24 @@ class TileRoomBot(TwitchIrc):
                 elif cmd[0] == '!whitelist':
                     self.whisper(user,'Here is a comma-separated list of currently whitelisted users for TileRoomBot: ' + ','.join(whitelist))
                     logger.info('whispered ' + user + ' with the channel whitelist')
-                elif cmd[0] == '!populate':
-                    recordguess(channel, 'testuser1', '8')
-                    recordguess(channel, 'testuser2', '18')
-                    recordguess(channel, 'testuser3', '12')
-                    recordguess(channel, 'testuser4', '1')
-                    recordguess(channel, 'testuser5', '-1')
-                    recordguess(channel, 'testuser6', '2000')
-                    recordguess(channel, 'testuser7', '23')
-                    recordguess(channel, 'testuser8', '10')
-                    recordguess(channel, 'testuser9', '19')
-                    recordguess(channel, 'testuser10', '15')
-                    recordguess(channel, 'testuser11', '14')
-                    recordguess(channel, 'testuser12', '2')
-                    recordguess(channel, 'testuser13', '2000')
-                    recordguess(channel, 'testuser14', '17')
-                    logger.info(gtbk_game_guesses[channel])
-                elif cmd[0] == '!addguess':
-                    recordguess(channel, cmd[1], cmd[2])
+                # elif cmd[0] == '!populate':
+                #     recordguess(channel, 'testuser1', '8')
+                #     recordguess(channel, 'testuser2', '18')
+                #     recordguess(channel, 'testuser3', '12')
+                #     recordguess(channel, 'testuser4', '1')
+                #     recordguess(channel, 'testuser5', '-1')
+                #     recordguess(channel, 'testuser6', '2000')
+                #     recordguess(channel, 'testuser7', '23')
+                #     recordguess(channel, 'testuser8', '10')
+                #     recordguess(channel, 'testuser9', '19')
+                #     recordguess(channel, 'testuser10', '15')
+                #     recordguess(channel, 'testuser11', '14')
+                #     recordguess(channel, 'testuser12', '2')
+                #     recordguess(channel, 'testuser13', '2000')
+                #     recordguess(channel, 'testuser14', '17')
+                #     logger.info(gtbk_game_guesses[channel])
+                # elif cmd[0] == '!addguess':
+                #     recordguess(channel, cmd[1], cmd[2])
         else:
             recordguess(channel, user, message)
 
