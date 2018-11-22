@@ -70,19 +70,19 @@ class TileRoomBot(TwitchIrc):
 
         if message.startswith('!'):
             cmd = message.split()
-            #run privleged commands
-            if user.lower() in whitelist or tags['mod'] == '1' or channel.lower() == ('#' + user.lower()):
-                if cmd[0] == '!start':
+            if cmd[0] == '!start':
+                if is_authorized(user,tags,channel):
                     if gtbk_game_status[channel] == 'started':
                         msg = 'Game already started!  Use !forcestop to force the previous game to end if this is in error.'
                         self.message(channel,msg)
                     else:
                         gtbk_game_guesses[channel].clear()
-                        msg = 'Get your GTBK guesses in!  The first viewer who guesses closest to the actual key location gets praise by this bot and potentially the commentators!  Only your last guess counts.'
+                        msg = 'Get your GTBK guesses in!  The first viewer who guesses closest to the actual key location gets a place on the leaderboard!  Points are scored based on the number of participants in the game.  Only your last guess counts.'
                         self.message(channel,msg)
                         gtbk_game_status[channel] = "started"
                         logger.info(user + ' started GTBK game on ' + channel)
-                elif cmd[0] == '!stop':
+            elif cmd[0] == '!stop':
+                if is_authorized(user,tags,channel):
                     if gtbk_game_status[channel] != 'started':
                         msg = 'Game already stopped or finished!'
                         self.message(channel,msg)
@@ -98,13 +98,15 @@ class TileRoomBot(TwitchIrc):
                             self.message(channel,msg)
                             gtbk_game_status[channel] = "stopped"
                             logger.info(user + ' stopped GTBK game on ' + channel)
-                elif cmd[0] == '!forcestop':
+            elif cmd[0] == '!forcestop':
+                if is_authorized(user,tags,channel):
                     msg = 'Setting GTBK game to finished.'
                     self.message(channel,msg)
                     gtbk_game_status[channel] = "finished"
                     logger.info(user + ' forced finish GTBK game on ' + channel)
                     logger.info(gtbk_game_guesses[channel])
-                elif cmd[0] == '!bigkey' or cmd[0] == '!key':
+            elif cmd[0] == '!bigkey' or cmd[0] == '!key':
+                if is_authorized(user,tags,channel):
                     winner = findwinner(cmd[1],channel)
                     if winner:
                         gtbk_game_status[channel] = "finished"
@@ -121,37 +123,45 @@ class TileRoomBot(TwitchIrc):
                             points = score,
                         )
                         self.message(channel,msg)
+                        msg = get_leaderboard_msg()
+                        self.message(channel,msg)
                     else:
                         msg = 'There was an issue while finding the winner.  Please make sure you entered a postiive number.'
                         self.message(channel,msg)
-                elif cmd[0] == '!whitelist':
+            elif cmd[0] == '!whitelist':
+                if is_authorized(user,tags,channel):
                     self.whisper(user,'Here is a comma-separated list of currently whitelisted users for TileRoomBot: ' + ','.join(whitelist))
                     logger.info('whispered ' + user + ' with the channel whitelist')
-                # elif cmd[0] == '!populate':
-                #     recordguess(channel, 'testuser1', '8')
-                #     recordguess(channel, 'testuser2', '18')
-                #     recordguess(channel, 'testuser3', '12')
-                #     recordguess(channel, 'testuser4', '1')
-                #     recordguess(channel, 'testuser5', '-1')
-                #     recordguess(channel, 'testuser6', '2000')
-                #     recordguess(channel, 'testuser7', '23')
-                #     recordguess(channel, 'testuser8', '10')
-                #     recordguess(channel, 'testuser9', '19')
-                #     recordguess(channel, 'testuser10', '15')
-                #     recordguess(channel, 'testuser11', '14')
-                #     recordguess(channel, 'testuser12', '2')
-                #     recordguess(channel, 'testuser13', '2000')
-                #     recordguess(channel, 'testuser14', '17')
-                #     logger.info(gtbk_game_guesses[channel])
-                # elif cmd[0] == '!addguess':
-                #     recordguess(channel, cmd[1], cmd[2])
+            elif cmd[0] == '!populateguesses':
+                if is_mod(user,tags,channel):
+                    recordguess(channel, 'testuser1', '8')
+                    recordguess(channel, 'testuser2', '18')
+                    recordguess(channel, 'testuser3', '12')
+                    recordguess(channel, 'testuser4', '1')
+                    recordguess(channel, 'testuser5', '-1')
+                    recordguess(channel, 'testuser6', '2000')
+                    recordguess(channel, 'testuser7', '23')
+                    recordguess(channel, 'testuser8', '10')
+                    recordguess(channel, 'testuser9', '19')
+                    recordguess(channel, 'testuser10', '15')
+                    recordguess(channel, 'testuser11', '14')
+                    recordguess(channel, 'testuser12', '2')
+                    recordguess(channel, 'testuser13', '2000')
+                    recordguess(channel, 'testuser14', '17')
+                    logger.info(gtbk_game_guesses[channel])
+            elif cmd[0] == '!addguess':
+                if is_mod(user,tags,channel):
+                    recordguess(channel, cmd[1], cmd[2])
             #our unprivledged commands
-            else:
-                if cmd[0] == '!leaderboard':
-                    msg = get_leaderboard_msg()
-                    self.message(channel,msg)
-                elif cmd[0] == '!gtbk':
-                    msg = "TileRoomBot, the official GTBK guessing game bot of the ALTTPR channels, written by Synack.   Licensed under the Apache License, Version 2.0."
+            elif cmd[0] == '!leaderboard':
+                msg = get_leaderboard_msg()
+                self.message(channel,msg)
+            elif cmd[0] == '!tileroombot':
+                msg = "TileRoomBot, the official GTBK guessing game bot of the ALTTPR channels, written by Synack.   Licensed under the Apache License, Version 2.0."
+                self.message(channel,msg)
+            elif cmd[0] == '!gtbk':
+                msg = "This bot records your guesses as to where the Ganon\'s Tower Big Key is located.  The first viewer who guesses closest to the actual key location gets a place on the leaderboard!  Points are scored based on the number of participants in the game."
+                self.message(channel,msg)
         else:
             recordguess(channel, user, message)
 
@@ -216,6 +226,7 @@ def get_approved_crew(d):
 def update_whitelist():
     global whitelist
     whitelist = get_whitelist_users('alttpr')
+    whitelist.append('synackthethird')
     logger.info('ran whitelist update')
     logger.info('new whitelist is ' + ','.join(whitelist))
 
@@ -268,5 +279,17 @@ def get_leaderboard_msg():
         )
 
     return msg
+
+def is_authorized(user,tags,channel):
+    if user.lower() in whitelist or tags['mod'] == '1' or channel.lower() == ('#' + user.lower()):
+        return True
+    else:
+        return False
+
+def is_mod(user,tags,channel):
+    if tags['mod'] == '1' or channel.lower() == ('#' + user.lower()):
+        return True
+    else:
+        return False
 
 main()
