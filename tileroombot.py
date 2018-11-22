@@ -7,20 +7,18 @@ from datetime import timedelta
 import logging
 import logging.handlers as handlers
 
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('tileroombot')
+logger.setLevel(logging.DEBUG)
+logHandler = handlers.TimedRotatingFileHandler('logs/tileroombot.log', when='D', interval=1, backupCount=7)
+logHandler.setLevel(logging.DEBUG)
+logHandler.setFormatter(formatter)
+logger.addHandler(logHandler)
+
 def main():
     global config
     config = configparser.ConfigParser()
     config.read('cfg/config.ini')
-
-    global logger
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    logger = logging.getLogger('tileroombot')
-    logger.setLevel(logging.INFO)
-    logHandler = handlers.TimedRotatingFileHandler('logs/tileroombot.log', when='D', interval=1, backupCount=7)
-    logHandler.setLevel(logging.INFO)
-    logHandler.setFormatter(formatter)
-    logger.addHandler(logHandler)
-
 
     global channels
     channels = config['DEFAULT']['CHANNELS'].split(',')
