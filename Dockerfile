@@ -7,6 +7,7 @@ ENV TZ=America/New_York
 
 RUN mkdir cfg
 RUN mkdir logs
+RUN mkdir data
 RUN pip install -r requirements.txt
 
 COPY . .
