@@ -2,25 +2,28 @@ from python_twitch_irc import TwitchIrc
 import requests
 import configparser
 import datetime
+import time
 import schedule
+import math
 from datetime import timedelta
 import logging
 import logging.handlers as handlers
+import sqlite3
+
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('tileroombot')
+logger.setLevel(logging.DEBUG)
+logHandler = handlers.TimedRotatingFileHandler('logs/tileroombot.log', when='D', interval=1, backupCount=7)
+logHandler.setLevel(logging.DEBUG)
+logHandler.setFormatter(formatter)
+logger.addHandler(logHandler)
+
+#open up our database connection
 
 def main():
     global config
     config = configparser.ConfigParser()
     config.read('cfg/config.ini')
-
-    global logger
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    logger = logging.getLogger('tileroombot')
-    logger.setLevel(logging.INFO)
-    logHandler = handlers.TimedRotatingFileHandler('logs/tileroombot.log', when='D', interval=1, backupCount=7)
-    logHandler.setLevel(logging.INFO)
-    logHandler.setFormatter(formatter)
-    logger.addHandler(logHandler)
-
 
     global channels
     channels = config['DEFAULT']['CHANNELS'].split(',')
@@ -39,6 +42,10 @@ def main():
         gtbk_game_status[channel] = {'finished'}
         #no guesses
         gtbk_game_guesses[channel] = {}
+
+    global dbconn
+    dbconn = create_connection('data/tileroombot.db')
+    init_database(dbconn)
 
     update_whitelist()
     schedule.every(20).minutes.do(update_whitelist)
@@ -62,63 +69,99 @@ class TileRoomBot(TwitchIrc):
         schedule.run_pending()
 
         if message.startswith('!'):
-            if user.lower() in whitelist or tags['mod'] == '1' or channel.lower() == ('#' + user.lower()):
-                cmd = message.split()
-                if cmd[0] == '!start':
+            cmd = message.split()
+            if cmd[0] == '!start':
+                if is_authorized(user,tags,channel):
                     if gtbk_game_status[channel] == 'started':
-                        self.message(channel,'Game already started!  Use !forcestop to force the previous game to end if this is in error.')
+                        msg = 'Game already started!  Use !forcestop to force the previous game to end if this is in error.'
+                        self.message(channel,msg)
                     else:
                         gtbk_game_guesses[channel].clear()
-                        self.message(channel,'Get your GTBK guesses in!  The first viewer who guesses closest to the actual key location gets praise by this bot and potentially the commentators!  Only your last guess counts.')
+                        msg = 'Get your GTBK guesses in!  The first viewer who guesses closest to the actual key location gets a place on the leaderboard!  Points are scored based on the number of participants in the game.  Only your last guess counts.'
+                        self.message(channel,msg)
                         gtbk_game_status[channel] = "started"
                         logger.info(user + ' started GTBK game on ' + channel)
-                elif cmd[0] == '!stop':
+            elif cmd[0] == '!stop':
+                if is_authorized(user,tags,channel):
                     if gtbk_game_status[channel] != 'started':
-                        self.message(channel,'Game already stopped or finished!')
+                        msg = 'Game already stopped or finished!'
+                        self.message(channel,msg)
                     else:
                         if len(gtbk_game_guesses[channel]) == 0:
-                            self.message(channel,'No guesses were entered prior to !stop being issued.  Finishing the GTBK game.')
+                            msg = 'No guesses were entered prior to !stop being issued.  Finishing the GTBK game.'
+                            self.message(channel,msg)
                             gtbk_game_status[channel] = "finished"
                             logger.info(user + ' finished GTBK game on ' + channel)
                             logger.info(gtbk_game_guesses[channel])
                         else:
-                            self.message(channel,'Guesses have now closed.  Good luck!')
+                            msg = 'Guesses have now closed.  Good luck!'
+                            self.message(channel,msg)
                             gtbk_game_status[channel] = "stopped"
                             logger.info(user + ' stopped GTBK game on ' + channel)
-                elif cmd[0] == '!forcestop':
-                    self.message(channel,'Setting GTBK game to finished.')
+            elif cmd[0] == '!forcestop':
+                if is_authorized(user,tags,channel):
+                    msg = 'Setting GTBK game to finished.'
+                    self.message(channel,msg)
                     gtbk_game_status[channel] = "finished"
                     logger.info(user + ' forced finish GTBK game on ' + channel)
                     logger.info(gtbk_game_guesses[channel])
-                elif cmd[0] == '!bigkey' or cmd[0] == '!key':
+            elif cmd[0] == '!bigkey' or cmd[0] == '!key':
+                if is_authorized(user,tags,channel):
                     winner = findwinner(cmd[1],channel)
                     if winner:
-                        self.message(channel,winner[0] + ' was the winner of the Ganon\'s Tower Big Key guessing game. ' + winner[0] + ' guessed ' + str(winner[1]) + ' and the big key was ' + cmd[1] + '. Congratulations!')
                         gtbk_game_status[channel] = "finished"
                         logger.info('GTBK winner found. ' + winner[0] + ' ' + str(winner[1]) + ' ' + cmd[1])
-                        logger.info(gtbk_game_guesses[channel])
+                        score = calculate_score(winner[0],gtbk_game_guesses[channel])
+                        insert_score(winner[0],channel,score)
+                        logger.info('GTBK score calculated. ' + winner[0] + ' wins ' + str(score) + ' points')
+                        logger.debug(gtbk_game_guesses[channel])
+
+                        msg = '{winnername} was the winner of the Ganon\'s Tower Big Key guessing game. {winnername} guessed {winnerguess} and the big key was {keyloc} and has thus scored {points} point(s) on the ALTTPR GTBK leaderboard!  Congratulations! (use !leaderboard to see current leaderboard)'.format(
+                            winnername = winner[0],
+                            winnerguess = str(winner[1]),
+                            keyloc = cmd[1],
+                            points = score,
+                        )
+                        self.message(channel,msg)
+                        msg = get_leaderboard_msg()
+                        self.message(channel,msg)
                     else:
-                        self.message(channel,'There was an issue while finding the winner.  Please make sure you entered a postiive number.')
-                elif cmd[0] == '!gtbkstatus':
-                    logger.info(gtbk_game_status[channel])
-                elif cmd[0] == '!gtbkguesses':
-                    logger.info(gtbk_game_guesses[channel])
-                elif cmd[0] == '!gtbktags':
-                    logger.info(tags)
-                elif cmd[0] == '!whitelist':
+                        msg = 'There was an issue while finding the winner.  Please make sure you entered a postiive number.'
+                        self.message(channel,msg)
+            elif cmd[0] == '!whitelist':
+                if is_authorized(user,tags,channel):
                     self.whisper(user,'Here is a comma-separated list of currently whitelisted users for TileRoomBot: ' + ','.join(whitelist))
                     logger.info('whispered ' + user + ' with the channel whitelist')
-                # elif cmd[0] == '!gtbkpopulate':
-                #     recordguess(channel, 'testuser1', '8')
-                #     recordguess(channel, 'testuser2', '18')
-                #     recordguess(channel, 'testuser3', '12')
-                #     recordguess(channel, 'testuser4', '1')
-                #     recordguess(channel, 'testuser5', '-1')
-                #     recordguess(channel, 'testuser6', '2000')
-                #     recordguess(channel, 'testuser7', '23')
-                #     logger.info(gtbk_game_guesses[channel])
-                # elif cmd[0] == '!addguess':
-                #     recordguess(channel, cmd[1], cmd[2])
+            elif cmd[0] == '!populateguesses':
+                if is_mod(user,tags,channel):
+                    recordguess(channel, 'testuser1', '8')
+                    recordguess(channel, 'testuser2', '18')
+                    recordguess(channel, 'testuser3', '12')
+                    recordguess(channel, 'testuser4', '1')
+                    recordguess(channel, 'testuser5', '-1')
+                    recordguess(channel, 'testuser6', '2000')
+                    recordguess(channel, 'testuser7', '23')
+                    recordguess(channel, 'testuser8', '10')
+                    recordguess(channel, 'testuser9', '19')
+                    recordguess(channel, 'testuser10', '15')
+                    recordguess(channel, 'testuser11', '14')
+                    recordguess(channel, 'testuser12', '2')
+                    recordguess(channel, 'testuser13', '2000')
+                    recordguess(channel, 'testuser14', '17')
+                    logger.info(gtbk_game_guesses[channel])
+            elif cmd[0] == '!addguess':
+                if is_mod(user,tags,channel):
+                    recordguess(channel, cmd[1], cmd[2])
+            #our unprivledged commands
+            elif cmd[0] == '!leaderboard':
+                msg = get_leaderboard_msg()
+                self.message(channel,msg)
+            elif cmd[0] == '!tileroombot':
+                msg = "TileRoomBot, the official GTBK guessing game bot of the ALTTPR channels, written by Synack.   Licensed under the Apache License, Version 2.0."
+                self.message(channel,msg)
+            elif cmd[0] == '!gtbk':
+                msg = "This bot records your guesses as to where the Ganon\'s Tower Big Key is located.  The first viewer who guesses closest to the actual key location gets a place on the leaderboard!  Points are scored based on the number of participants in the game."
+                self.message(channel,msg)
         else:
             recordguess(channel, user, message)
 
@@ -135,7 +178,6 @@ def recordguess(channel, user, message):
 def findwinner(keyloc, channel):
     if keyloc.isdigit():
         target = int(keyloc)
-        #this was shamelessly stolen from stack exchange becuase I'm bad at things
         key, value = min(gtbk_game_guesses[channel].items(), key=lambda kv : abs(kv[1] - target))
         return [key, value]
     else:
@@ -184,7 +226,70 @@ def get_approved_crew(d):
 def update_whitelist():
     global whitelist
     whitelist = get_whitelist_users('alttpr')
+    whitelist.append('synackthethird')
     logger.info('ran whitelist update')
     logger.info('new whitelist is ' + ','.join(whitelist))
+
+def init_database(conn):
+    qry = open('dbscripts/create_inital.sql', 'r').read()
+    conn.executescript(qry)
+    dbconn.commit()
+
+def create_connection(db_file):
+    """ create a database connection to the SQLite database
+        specified by db_file
+    :param db_file: database file
+    :return: Connection object or None
+    """
+    try:
+        conn = sqlite3.connect(db_file)
+        return conn
+    except Error as e:
+        logger.error(e)
+
+    return None
+
+def calculate_score(winner, guessdict):
+    cnt = len(guessdict)
+    if cnt <= 50:
+        score = math.ceil(((cnt-1) / 50) * 50)
+    else:
+        score = math.ceil(30 + ((cnt-51) / 50) * 10)
+
+    return score
+
+def insert_score(winner, channel, score):
+    sql = ''' INSERT INTO scores(twitch_username,channel,ts,score) VALUES(?,?,?,?) '''
+    score_record = [winner,channel,int(time.time()),score]
+    dbconn.cursor().execute(sql, score_record)
+    dbconn.commit()
+
+def get_leaderboard_msg():
+    sql = ''' SELECT twitch_username,SUM(score) as "points" FROM scores GROUP BY twitch_username ORDER BY points desc LIMIT 10; '''
+    cur = dbconn.cursor()
+    cur.execute(sql)
+
+    rows = cur.fetchall()
+
+    msg = 'Current GTBK game leaderboard for ALTTPR channels: '
+    for row in rows:
+        msg += '{name} has {points} point(s), '.format(
+            name = row[0],
+            points = str(row[1])
+        )
+
+    return msg
+
+def is_authorized(user,tags,channel):
+    if user.lower() in whitelist or tags['mod'] == '1' or channel.lower() == ('#' + user.lower()):
+        return True
+    else:
+        return False
+
+def is_mod(user,tags,channel):
+    if tags['mod'] == '1' or channel.lower() == ('#' + user.lower()):
+        return True
+    else:
+        return False
 
 main()

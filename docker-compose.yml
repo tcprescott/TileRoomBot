@@ -7,6 +7,7 @@ services:
     volumes:
      - ./cfg/config.ini:/usr/src/app/cfg/config.ini
      - ./logs/:/usr/src/app/logs/
+     - ./data/:/usr/src/app/data/
     restart: always
 networks:
   docker-network:
