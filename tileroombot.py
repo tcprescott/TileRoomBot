@@ -69,9 +69,9 @@ class TileRoomBot(TwitchIrc):
         schedule.run_pending()
 
         if message.startswith('!'):
+            cmd = message.split()
             #run privleged commands
             if user.lower() in whitelist or tags['mod'] == '1' or channel.lower() == ('#' + user.lower()):
-                cmd = message.split()
                 if cmd[0] == '!start':
                     if gtbk_game_status[channel] == 'started':
                         msg = 'Game already started!  Use !forcestop to force the previous game to end if this is in error.'
@@ -124,9 +124,6 @@ class TileRoomBot(TwitchIrc):
                     else:
                         msg = 'There was an issue while finding the winner.  Please make sure you entered a postiive number.'
                         self.message(channel,msg)
-                elif cmd[0] == '!leaderboard':
-                    msg = get_leaderboard_msg()
-                    self.message(channel,msg)
                 elif cmd[0] == '!whitelist':
                     self.whisper(user,'Here is a comma-separated list of currently whitelisted users for TileRoomBot: ' + ','.join(whitelist))
                     logger.info('whispered ' + user + ' with the channel whitelist')
@@ -148,6 +145,13 @@ class TileRoomBot(TwitchIrc):
                 #     logger.info(gtbk_game_guesses[channel])
                 # elif cmd[0] == '!addguess':
                 #     recordguess(channel, cmd[1], cmd[2])
+            #our unprivledged commands
+            else:
+                if cmd[0] == '!leaderboard':
+                    msg = get_leaderboard_msg()
+                    self.message(channel,msg)
+                elif cmd[0] == '!gtbk':
+                    msg = "TileRoomBot, the official GTBK guessing game bot of the ALTTPR channels, written by Synack.   Licensed under the Apache License, Version 2.0."
         else:
             recordguess(channel, user, message)
 
@@ -164,7 +168,6 @@ def recordguess(channel, user, message):
 def findwinner(keyloc, channel):
     if keyloc.isdigit():
         target = int(keyloc)
-        #this was shamelessly stolen from stack exchange becuase I'm bad at things
         key, value = min(gtbk_game_guesses[channel].items(), key=lambda kv : abs(kv[1] - target))
         return [key, value]
     else:
