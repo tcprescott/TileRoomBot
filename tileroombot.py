@@ -251,10 +251,10 @@ def create_connection(db_file):
 
 def calculate_score(winner, guessdict):
     cnt = len(guessdict)
-    if cnt <= 50:
-        score = math.ceil(((cnt-1) / 50) * 50)
+    if cnt <= 25:
+        score = cnt - 1
     else:
-        score = math.ceil(30 + ((cnt-51) / 50) * 10)
+        score = math.ceil(25 + ((cnt-26) / 25) * 10)
 
     return score
 
