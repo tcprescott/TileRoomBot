@@ -5,3 +5,8 @@ CREATE TABLE IF NOT EXISTS scores (
   ts integer,
   score integer
 );
+
+-- CREATE TABLE IF NOT EXISTS whitelist (
+--   id integer PRIMARY KEY AUTOINCREMENT,
+--   twitch_username text,
+-- )

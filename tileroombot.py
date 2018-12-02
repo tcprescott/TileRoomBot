@@ -94,7 +94,9 @@ class TileRoomBot(TwitchIrc):
                             logger.info(user + ' finished GTBK game on ' + channel)
                             logger.info(gtbk_game_guesses[channel])
                         else:
-                            msg = 'Guesses have now closed.  Good luck!'
+                            msg = 'Guesses have now closed. {points} points will be awarded to the winner. Good luck!'.format(
+                                points = calculate_score(gtbk_game_guesses[channel]),
+                            )
                             self.message(channel,msg)
                             gtbk_game_status[channel] = "stopped"
                             logger.info(user + ' stopped GTBK game on ' + channel)
@@ -104,14 +106,14 @@ class TileRoomBot(TwitchIrc):
                     self.message(channel,msg)
                     gtbk_game_status[channel] = "finished"
                     logger.info(user + ' forced finish GTBK game on ' + channel)
-                    logger.info(gtbk_game_guesses[channel])
+                    logger.debug(gtbk_game_guesses[channel])
             elif cmd[0] == '!bigkey' or cmd[0] == '!key':
                 if is_authorized(user,tags,channel):
                     winner = findwinner(cmd[1],channel)
                     if winner:
                         gtbk_game_status[channel] = "finished"
                         logger.info('GTBK winner found. ' + winner[0] + ' ' + str(winner[1]) + ' ' + cmd[1])
-                        score = calculate_score(winner[0],gtbk_game_guesses[channel])
+                        score = calculate_score(gtbk_game_guesses[channel])
                         insert_score(winner[0],channel,score)
                         logger.info('GTBK score calculated. ' + winner[0] + ' wins ' + str(score) + ' points')
                         logger.debug(gtbk_game_guesses[channel])
@@ -129,9 +131,13 @@ class TileRoomBot(TwitchIrc):
                         msg = 'There was an issue while finding the winner.  Please make sure you entered a postiive number.'
                         self.message(channel,msg)
             elif cmd[0] == '!whitelist':
-                if is_authorized(user,tags,channel):
-                    self.whisper(user,'Here is a comma-separated list of currently whitelisted users for TileRoomBot: ' + ','.join(whitelist))
-                    logger.info('whispered ' + user + ' with the channel whitelist')
+                if is_mod(user,tags,channel):
+                    if cmd[1] == 'add':
+                        whitelist_add(cmd[2])
+                    elif cmd[1] == 'remove':
+                        whitelist_del(cmd[2])
+                    else:
+                        self.message(channel,'Here is a comma-separated list of currently whitelisted users for TileRoomBot: ' + ','.join(whitelist))
             elif cmd[0] == '!populateguesses':
                 if is_mod(user,tags,channel):
                     recordguess(channel, 'testuser1', '8')
@@ -249,7 +255,7 @@ def create_connection(db_file):
 
     return None
 
-def calculate_score(winner, guessdict):
+def calculate_score(guessdict):
     cnt = len(guessdict)
     if cnt <= 25:
         score = math.ceil((cnt - 1)/2) + 5
@@ -291,5 +297,11 @@ def is_mod(user,tags,channel):
         return True
     else:
         return False
+
+def whitelist_add(user):
+    pass
+
+def whitelist_del(user):
+    pass
 
 main()
