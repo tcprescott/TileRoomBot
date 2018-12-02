@@ -1,3 +1,5 @@
 [DEFAULT]
+; This is your OAUTH token for the bot to use to connect to IRC (see README)
 TWITCH_OAUTH_TOKEN = oauthtokenhere
+; each channel needs to start with #, e.g. #the_synack
 WHITELIST = comma,separated,list,here
