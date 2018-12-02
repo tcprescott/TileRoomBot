@@ -132,12 +132,21 @@ class TileRoomBot(TwitchIrc):
                         self.message(channel,msg)
             elif cmd[0] == '!whitelist':
                 if is_mod(user,tags,channel):
-                    if cmd[1] == 'add':
-                        whitelist_add(cmd[2])
-                    elif cmd[1] == 'remove':
-                        whitelist_del(cmd[2])
-                    else:
+                    try:
+                        arg = cmd[1]
+                    except IndexError:
+                        arg = 'list'
+
+                    if arg == 'add':
+                        whitelist_add(cmd[2],user)
+                    elif arg == 'del':
+                        whitelist_del(cmd[2],user)
+                    elif arg == 'update':
+                        update_whitelist()
+                    elif arg == 'list':
                         self.message(channel,'Here is a comma-separated list of currently whitelisted users for TileRoomBot: ' + ','.join(whitelist))
+                    else:
+                        self.message(channel,'Unknown whitelist command.')
             elif cmd[0] == '!populateguesses':
                 if is_mod(user,tags,channel):
                     recordguess(channel, 'testuser1', '8')
@@ -193,31 +202,45 @@ def get_sg_schedule_today(slug):
     sched_from = now - timedelta(hours=12)
     sched_to = now + timedelta(hours=6)
 
-    url=config['DEFAULT']['SPEEDGAMING_API_PATH'] + '/schedule'
+    if config.has_option('DEFAULT','SPEEDGAMING_API_PATH'):
+        url=config['DEFAULT']['SPEEDGAMING_API_PATH'] + '/schedule'
 
-    params = {
-        'event': slug,
-        'from': sched_from.isoformat(),
-        'to': sched_to.isoformat()
-    }
-    sched_resp = requests.get(
-        url=url,
-        params=params
-    )
-    logger.info(sched_resp.url)
-    return(sched_resp.json())
+        params = {
+            'event': slug,
+            'from': sched_from.isoformat(),
+            'to': sched_to.isoformat()
+        }
+        sched_resp = requests.get(
+            url=url,
+            params=params
+        )
+        logger.info(sched_resp.url)
+        return(sched_resp.json())
+    else:
+        return None
 
-def get_whitelist_users(slug):
-    schedule = get_sg_schedule_today(slug)
-    list = []
-    for e in schedule:
-        if e['event']['slug'] == slug:
-            if any(channel.get('slug', None) in ['alttpr','alttpr2','alttpr3','alttpr4','alttpr5','alttpr6'] for channel in e['channels']):
-                list.extend(get_approved_crew(e['broadcasters']))
-                list.extend(get_approved_crew(e['commentators']))
-                list.extend(get_approved_crew(e['trackers']))
+def get_whitelist_users(sluglist):
+    whitelist = []
+    for slug in sluglist:
+        schedule = get_sg_schedule_today(slug)
+        if schedule:
+            for e in schedule:
+                if any(channel.get('slug', None) in ['alttpr','alttpr2','alttpr3','alttpr4','alttpr5','alttpr6'] for channel in e['channels']):
+                    whitelist.extend(get_approved_crew(e['broadcasters']))
+                    whitelist.extend(get_approved_crew(e['commentators']))
+                    whitelist.extend(get_approved_crew(e['trackers']))
 
-    return(list)
+
+
+    sql = ''' SELECT whitelisted_twitch_user FROM whitelist; '''
+    cur = dbconn.cursor()
+    cur.execute(sql)
+
+    rows = cur.fetchall()
+    for row in rows:
+        whitelist.append(row[0])
+
+    return(list(set(whitelist)))
 
 def get_approved_crew(d):
     approved_crew = []
@@ -231,8 +254,8 @@ def get_approved_crew(d):
 
 def update_whitelist():
     global whitelist
-    whitelist = get_whitelist_users('alttpr')
-    whitelist.append('synackthethird')
+    whitelist = get_whitelist_users(['alttpr','owg'])
+
     logger.info('ran whitelist update')
     logger.info('new whitelist is ' + ','.join(whitelist))
 
@@ -242,18 +265,8 @@ def init_database(conn):
     dbconn.commit()
 
 def create_connection(db_file):
-    """ create a database connection to the SQLite database
-        specified by db_file
-    :param db_file: database file
-    :return: Connection object or None
-    """
-    try:
-        conn = sqlite3.connect(db_file)
-        return conn
-    except Error as e:
-        logger.error(e)
-
-    return None
+    conn = sqlite3.connect(db_file)
+    return conn
 
 def calculate_score(guessdict):
     cnt = len(guessdict)
@@ -298,10 +311,18 @@ def is_mod(user,tags,channel):
     else:
         return False
 
-def whitelist_add(user):
-    pass
+def whitelist_add(whitelisted_twitch_user,user):
+    sql = ''' INSERT INTO whitelist(whitelisted_twitch_user, whitelisted_by) SELECT ?, ? WHERE NOT EXISTS(SELECT 1 FROM whitelist WHERE whitelisted_twitch_user=?);'''
+    whitelist_record = [whitelisted_twitch_user,user,whitelisted_twitch_user]
+    dbconn.cursor().execute(sql, whitelist_record)
+    dbconn.commit()
+    update_whitelist()
 
-def whitelist_del(user):
-    pass
+def whitelist_del(whitelisted_twitch_user,user):
+    sql = ''' DELETE FROM whitelist WHERE whitelisted_twitch_user=?;'''
+    whitelist_record = [whitelisted_twitch_user]
+    dbconn.cursor().execute(sql, whitelist_record)
+    dbconn.commit()
+    update_whitelist()
 
 main()

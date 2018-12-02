@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS scores (
   score integer
 );
 
--- CREATE TABLE IF NOT EXISTS whitelist (
---   id integer PRIMARY KEY AUTOINCREMENT,
---   twitch_username text,
--- )
+CREATE TABLE IF NOT EXISTS whitelist (
+  id integer PRIMARY KEY AUTOINCREMENT,
+  whitelisted_twitch_user text,
+  whitelisted_by text
+)
