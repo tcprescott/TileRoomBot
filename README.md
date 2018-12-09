@@ -1,6 +1,6 @@
 # TileRoomBot
 
-Requires Python 3 (tested with 3.6)
+Requires Python 3 (tested with 3.6, python_twitch_irc library doesn't work with 3.7)
 
 modify tileroombot.py to point to the channels you want to use
 
