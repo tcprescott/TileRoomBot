@@ -114,22 +114,35 @@ class TileRoomBot(TwitchIrc):
                         gtbk_game_status[channel] = "finished"
                         logger.info('GTBK winner found. ' + winner[0] + ' ' + str(winner[1]) + ' ' + cmd[1])
                         score = calculate_score(gtbk_game_guesses[channel])
-                        insert_score(winner[0],channel,score)
                         logger.info('GTBK score calculated. ' + winner[0] + ' wins ' + str(score) + ' points')
                         logger.debug(gtbk_game_guesses[channel])
-
-                        msg = '{winnername} was the winner of the Ganon\'s Tower Big Key guessing game. {winnername} guessed {winnerguess} and the big key was {keyloc} and has thus scored {points} point(s) on the ALTTPR GTBK leaderboard!  Congratulations! (use !leaderboard to see current leaderboard)'.format(
+                        msg = '{winnername} was the winner of the Ganon\'s Tower Big Key guessing game. {winnername} guessed {winnerguess} and the big key was {keyloc} and has thus scored {points} point(s) on the ALTTPR GTBK leaderboard!'.format(
                             winnername = winner[0],
                             winnerguess = str(winner[1]),
                             keyloc = cmd[1],
                             points = score,
                         )
+                        runners_up = get_exact_guesses(gtbk_game_guesses[channel],winner[0],int(cmd[1]))
+                        print(runners_up)
+                        if len(runners_up) > 0:
+                            msg += '  The player(s) {runnerup} also guessed exactly correct and score 5 bonus points each.'.format(
+                                runnerup = ', '.join(runners_up),
+                            )
+                        msg += '  Congratulations! (use !leaderboard to see current leaderboard)'
                         self.message(channel,msg)
-                        msg = get_leaderboard_msg()
-                        self.message(channel,msg)
+                        logger.info('Logging results')
+                        insert_score(winner[0],channel,score)
+                        for runnerup in runners_up:
+                            insert_score(runnerup,channel,5)
+                        # msg = get_leaderboard_msg()
+                        # self.message(channel,msg)
                     else:
                         msg = 'There was an issue while finding the winner.  Please make sure you entered a postiive number.'
                         self.message(channel,msg)
+            elif cmd[0] == '!save':
+                if is_authorized(user,tags,channel):
+                    msg = 'The !save command is not required on ALTTPR channels.'
+                    self.message(channel,msg)
             elif cmd[0] == '!whitelist':
                 if is_mod(user,tags,channel):
                     try:
@@ -163,6 +176,17 @@ class TileRoomBot(TwitchIrc):
                     recordguess(channel, 'testuser12', '2')
                     recordguess(channel, 'testuser13', '2000')
                     recordguess(channel, 'testuser14', '17')
+                    recordguess(channel, 'spam1', '2')
+                    recordguess(channel, 'spam2', '2')
+                    recordguess(channel, 'spam3', '2')
+                    recordguess(channel, 'spam4', '2')
+                    recordguess(channel, 'spam5', '2')
+                    recordguess(channel, 'spam6', '2')
+                    recordguess(channel, 'spam7', '2')
+                    recordguess(channel, 'spam8', '2')
+                    recordguess(channel, 'spam9', '2')
+                    recordguess(channel, 'spam10', '2')
+                    recordguess(channel, 'spam11', '2')
                     logger.info(gtbk_game_guesses[channel])
             elif cmd[0] == '!addguess':
                 if is_mod(user,tags,channel):
@@ -171,8 +195,25 @@ class TileRoomBot(TwitchIrc):
             elif cmd[0] == '!leaderboard':
                 msg = get_leaderboard_msg()
                 self.message(channel,msg)
+            elif cmd[0] == '!score':
+                try:
+                    arg = cmd[1]
+                except IndexError:
+                    arg = user
+                userscore = get_user_score(arg)
+                if userscore:
+                    msg = "Score for {user} is {points}".format(
+                        user = arg,
+                        points = userscore,
+                    )
+                else:
+                    msg = "No score found for {user}".format(
+                        user = arg,
+                    )
+                self.message(channel,msg)
             elif cmd[0] == '!tileroombot':
-                msg = "TileRoomBot, the official GTBK guessing game bot of the ALTTPR channels, written by Synack.   Licensed under the Apache License, Version 2.0."
+                msg = ("TileRoomBot, the official GTBK guessing game bot of the ALTTPR channels, written by Synack."
+                    "Licensed under the Apache License, Version 2.0.")
                 self.message(channel,msg)
             elif cmd[0] == '!gtbk':
                 msg = "This bot records your guesses as to where the Ganon\'s Tower Big Key is located.  The first viewer who guesses closest to the actual key location gets a place on the leaderboard!  Points are scored based on the number of participants in the game."
@@ -277,6 +318,16 @@ def calculate_score(guessdict):
 
     return score
 
+def get_exact_guesses(guessdict,winner,loc):
+    runners_up = []
+    for user, guess in guessdict.items():
+        if guess == loc and not user == winner:
+            print(user)
+            print(winner)
+            runners_up.append(user)
+    return runners_up
+
+
 def insert_score(winner, channel, score):
     sql = ''' INSERT INTO scores(twitch_username,channel,ts,score) VALUES(?,?,?,?) '''
     score_record = [winner,channel,int(time.time()),score]
@@ -298,6 +349,13 @@ def get_leaderboard_msg():
         )
 
     return msg
+
+def get_user_score(user):
+    sql = ''' SELECT SUM(score) as "points" FROM scores WHERE twitch_username = ?; '''
+    cur = dbconn.cursor()
+    cur.execute(sql,[user])
+
+    return cur.fetchone()[0]
 
 def is_authorized(user,tags,channel):
     if user.lower() in whitelist or tags['mod'] == '1' or channel.lower() == ('#' + user.lower()):
