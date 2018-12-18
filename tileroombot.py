@@ -223,11 +223,11 @@ class TileRoomBot(TwitchIrc):
 
 def recordguess(channel, user, message):
     if gtbk_game_status[channel] == 'started' and message.isdigit():
-        gtbk_game_guesses[channel].pop(user, None)
+        gtbk_game_guesses[channel].pop(user.lower(), None)
         # in case the user tries to send something strange
         try:
-            gtbk_game_guesses[channel][user] = int(message)
-            logger.info('recording guess on channel ' + channel + ' by ' + user + ' as ' + message)
+            gtbk_game_guesses[channel][user.lower()] = int(message)
+            logger.info('recording guess on channel ' + channel + ' by ' + user.lower() + ' as ' + message)
         except ValueError:
             pass
 
@@ -330,7 +330,7 @@ def get_exact_guesses(guessdict,winner,loc):
 
 def insert_score(winner, channel, score):
     sql = ''' INSERT INTO scores(twitch_username,channel,ts,score) VALUES(?,?,?,?) '''
-    score_record = [winner,channel,int(time.time()),score]
+    score_record = [winner.lower(),channel,int(time.time()),score]
     dbconn.cursor().execute(sql, score_record)
     dbconn.commit()
 
@@ -353,7 +353,7 @@ def get_leaderboard_msg():
 def get_user_score(user):
     sql = ''' SELECT SUM(score) as "points" FROM scores WHERE twitch_username = ?; '''
     cur = dbconn.cursor()
-    cur.execute(sql,[user])
+    cur.execute(sql,[user.lower()])
 
     return cur.fetchone()[0]
 
