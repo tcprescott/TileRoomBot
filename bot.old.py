@@ -1,4 +1,5 @@
-import TwitchIO
+from python_twitch_irc import TwitchIrc
+import requests
 import configparser
 import datetime
 import time
